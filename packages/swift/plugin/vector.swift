@@ -48,8 +48,8 @@ func createvectorBuildCommands(packageDirectory: URL?, outputDirectory: URL) -> 
                 
                 # Build directly from source directory with custom output paths
                 cd "\(workingDirectory)" && \
-                echo "Building XCFramework with native network..." && \
-                make xcframework NATIVE_NETWORK=ON DIST_DIR="\(outputDirectory.path)" BUILD_RELEASE="\(outputDirectory.path)/build/release" BUILD_TEST="\(outputDirectory.path)/build/test" && \
+                echo "Building XCFramework..." && \
+                make xcframework DIST_DIR="\(outputDirectory.path)" BUILD_DIR="\(outputDirectory.path)/build" && \
                 rm -rf "\(outputDirectory.path)/build" && \
                 echo "XCFramework build completed successfully!"
                 """
