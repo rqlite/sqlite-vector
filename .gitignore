@@ -8,3 +8,4 @@
 *.sqlite
 *.a
 .vscode
+.build
