@@ -178,11 +178,14 @@ $(DIST_DIR)/%.xcframework: $(LIB_NAMES)
 
 xcframework: $(DIST_DIR)/vector.xcframework
 
+AAR_ARM = packages/android/src/main/jniLibs/arm64-v8a/
+AAR_X86 = packages/android/src/main/jniLibs/x86_64/
 aar:
+	mkdir -p $(AAR_ARM) $(AAR_X86)
 	$(MAKE) clean && $(MAKE) PLATFORM=android ARCH=arm64-v8a
-	mv $(DIST_DIR)/vector.so packages/android/src/main/jniLibs/arm64-v8a/
+	mv $(DIST_DIR)/vector.so $(AAR_ARM)
 	$(MAKE) clean && $(MAKE) PLATFORM=android ARCH=x86_64
-	mv $(DIST_DIR)/vector.so packages/android/src/main/jniLibs/x86_64/
+	mv $(DIST_DIR)/vector.so $(AAR_X86)
 	cd packages/android && gradle assembleRelease
 	mv packages/android/build/outputs/aar/*.aar $(DIST_DIR)/vector.aar
 
