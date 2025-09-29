@@ -52,6 +52,9 @@ jobs:
           - os: macos-15
             name: apple-xcframework
             make: xcframework
+          - os: ubuntu-22.04
+            name: android-aar
+            make: aar
 
     defaults:
       run:
@@ -231,19 +234,30 @@ jobs:
           for folder in "artifacts"/*; do
             if [ -d "$folder" ]; then
               name=$(basename "$folder")
-              if [[ "$name" != "vector-apple-xcframework" ]]; then
+              if [[ "$name" != "vector-apple-xcframework" && "$name" != "vector-android-aar" ]]; then
                 tar -czf "${name}-${{ steps.tag.outputs.version }}.tar.gz" -C "$folder" .
               fi
-              (cd "$folder" && zip -rq "../../${name}-${{ steps.tag.outputs.version }}.zip" .)
+              if [[ "$name" != "vector-android-aar" ]]; then
+                (cd "$folder" && zip -rq "../../${name}-${{ steps.tag.outputs.version }}.zip" .)
+              else
+                cp "$folder"/*.aar "${name}-${{ steps.tag.outputs.version }}.aar"
+              fi
             fi
           done
+
+      - name: release android aar to maven central
+        if: false # maven central namespace needs to be verified first steps.tag.outputs.version != ''
+        run: cd packages/android && gradle publishReleasePublicationToOSSRHRepository -PVERSION=${{ steps.tag.outputs.version }}
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
 
       - uses: softprops/action-gh-release@v2.2.1
         if: steps.tag.outputs.version != ''
         with:
           generate_release_notes: true
           tag_name: ${{ steps.tag.outputs.version }}
-          files: |
-            vector-*-${{ steps.tag.outputs.version }}.zip
-            vector-*-${{ steps.tag.outputs.version }}.tar.gz
+          files: vector-*-${{ steps.tag.outputs.version }}.*
           make_latest: true

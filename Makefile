@@ -178,6 +178,14 @@ $(DIST_DIR)/%.xcframework: $(LIB_NAMES)
 
 xcframework: $(DIST_DIR)/vector.xcframework
 
+aar:
+	$(MAKE) clean && $(MAKE) PLATFORM=android ARCH=arm64-v8a
+	mv $(DIST_DIR)/vector.so packages/android/src/main/jniLibs/arm64-v8a/
+	$(MAKE) clean && $(MAKE) PLATFORM=android ARCH=x86_64
+	mv $(DIST_DIR)/vector.so packages/android/src/main/jniLibs/x86_64/
+	cd packages/android && gradle assembleRelease
+	mv packages/android/build/outputs/aar/*.aar $(DIST_DIR)/vector.aar
+
 version:
 	@echo $(shell sed -n 's/^#define SQLITE_VECTOR_VERSION[[:space:]]*"\([^"]*\)".*/\1/p' src/sqlite-vector.h)
 
@@ -201,5 +209,6 @@ help:
 	@echo "  test			- Test the extension"
 	@echo "  help			- Display this help message"
 	@echo "  xcframework	- Build the Apple XCFramework"
+	@echo "  aar			- Build the Android AAR package"
 
-.PHONY: all clean test extension help version xcframework
+.PHONY: all clean test extension help version xcframework aar
