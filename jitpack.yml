@@ -1,6 +1,5 @@
 jdk:
   - openjdk17
 install:
-  - echo "JITPACK_VERSION is $JITPACK_VERSION"
   - make aar ANDROID_NDK=$ANDROID_HOME/ndk-bundle
-  - cd packages/android && ./gradlew publishToMavenLocal -PVERSION=$JITPACK_VERSION
+  - cd packages/android && ./gradlew publishToMavenLocal -PVERSION=$(make -C ../.. version)
