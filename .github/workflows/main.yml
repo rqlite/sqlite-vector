@@ -252,6 +252,11 @@ jobs:
             fi
           done
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: release android aar to maven central
         if: steps.tag.outputs.version != ''
         run: cd packages/android && ./gradlew publishReleasePublicationToOSSRHRepository -PVERSION=${{ steps.tag.outputs.version }}
