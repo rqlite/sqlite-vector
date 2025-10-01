@@ -10,6 +10,7 @@ buildscript {
 
 apply plugin: 'com.android.library'
 apply plugin: 'maven-publish'
+apply plugin: 'signing'
 
 android {
     namespace 'ai.sqlite.vector'
@@ -56,7 +57,59 @@ afterEvaluate {
                 version = project.hasProperty('VERSION') ? project.VERSION : ['make', 'version'].execute(null, file('../..')).text.trim()
 
                 artifact bundleReleaseAar
+
+                pom {
+                    name = 'SQLite Vector'
+                    description = 'A cross-platform, ultra-efficient SQLite extension that brings vector search capabilities to your embedded database. Works seamlessly on iOS, Android, Windows, Linux, and macOS, using just 30MB of memory by default.'
+                    url = 'https://github.com/sqliteai/sqlite-vector'
+
+                    licenses {
+                        license {
+                            name = 'Elastic License 2.0'
+                            url = 'https://www.elastic.co/licensing/elastic-license'
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            id = 'sqliteai'
+                            name = 'SQLite Cloud, Inc.'
+                            email = 'info@sqlitecloud.io'
+                            organization = 'SQLite Cloud, Inc.'
+                            organizationUrl = 'https://sqlite.ai'
+                        }
+                    }
+
+                    scm {
+                        connection = 'scm:git:git://github.com/sqliteai/sqlite-vector.git'
+                        developerConnection = 'scm:git:ssh://github.com/sqliteai/sqlite-vector.git'
+                        url = 'https://github.com/sqliteai/sqlite-vector'
+                    }
+                }
             }
         }
+
+        repositories {
+            maven {
+                name = "OSSRH"
+                url = project.hasProperty('VERSION') ?
+                    "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/" :
+                    "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+                credentials {
+                    username = project.findProperty("MAVEN_CENTRAL_USERNAME") ?: ""
+                    password = project.findProperty("MAVEN_CENTRAL_TOKEN") ?: ""
+                }
+            }
+        }
+    }
+}
+
+signing {
+    def signingKey = project.findProperty("SIGNING_KEY")
+    def signingPassword = project.findProperty("SIGNING_PASSWORD")
+
+    if (signingKey && signingPassword) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+        sign publishing.publications.release
     }
 }

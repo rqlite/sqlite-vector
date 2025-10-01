@@ -253,11 +253,11 @@ jobs:
           done
 
       - name: release android aar to maven central
-        if: false # maven central namespace needs to be verified first steps.tag.outputs.version != ''
-        run: cd packages/android && gradle publishReleasePublicationToOSSRHRepository -PVERSION=${{ steps.tag.outputs.version }}
+        if: steps.tag.outputs.version != ''
+        run: cd packages/android && ./gradlew publishReleasePublicationToOSSRHRepository -PVERSION=${{ steps.tag.outputs.version }}
         env:
-          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_TOKEN: ${{ secrets.MAVEN_CENTRAL_TOKEN }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
 
