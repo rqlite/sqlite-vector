@@ -2,4 +2,4 @@ jdk:
   - openjdk17
 install:
   - make aar ANDROID_NDK=$ANDROID_HOME/ndk-bundle
-  - cd packages/android && ./gradlew publishToMavenLocal -PVERSION=$(make -C ../.. version)
+  - cd packages/android && ./gradlew publishToMavenLocal -PVERSION="0.9.27"
