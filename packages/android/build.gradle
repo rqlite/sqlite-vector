@@ -8,6 +8,10 @@ buildscript {
     }
 }
 
+plugins {
+    id 'com.gradleup.nmcp' version '1.2.0'
+}
+
 apply plugin: 'com.android.library'
 apply plugin: 'maven-publish'
 
@@ -56,7 +60,54 @@ afterEvaluate {
                 version = project.hasProperty('VERSION') ? project.VERSION : ['make', 'version'].execute(null, file('../..')).text.trim()
 
                 artifact bundleReleaseAar
+
+                pom {
+                    name = 'SQLite Vector'
+                    description = 'A cross-platform, ultra-efficient SQLite extension that brings vector search capabilities to your embedded database. Works seamlessly on iOS, Android, Windows, Linux, and macOS, using just 30MB of memory by default.'
+                    url = 'https://github.com/sqliteai/sqlite-vector'
+
+                    licenses {
+                        license {
+                            name = 'Elastic License 2.0'
+                            url = 'https://www.elastic.co/licensing/elastic-license'
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            id = 'sqliteai'
+                            name = 'SQLite Cloud, Inc.'
+                            email = 'info@sqlitecloud.io'
+                            organization = 'SQLite Cloud, Inc.'
+                            organizationUrl = 'https://sqlite.ai'
+                        }
+                    }
+
+                    scm {
+                        connection = 'scm:git:git://github.com/sqliteai/sqlite-vector.git'
+                        developerConnection = 'scm:git:ssh://github.com/sqliteai/sqlite-vector.git'
+                        url = 'https://github.com/sqliteai/sqlite-vector'
+                    }
+                }
             }
         }
+    }
+}
+
+signing {
+    def signingKey = project.findProperty("SIGNING_KEY") ?: System.getenv("SIGNING_KEY")
+    def signingPassword = project.findProperty("SIGNING_PASSWORD") ?: System.getenv("SIGNING_PASSWORD")
+
+    if (signingKey && signingPassword) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+        sign publishing.publications.release
+    }
+}
+
+nmcp {
+    publishAllPublications {
+        username = project.findProperty("SONATYPE_USERNAME") ?: System.getenv("SONATYPE_USERNAME")
+        password = project.findProperty("SONATYPE_PASSWORD") ?: System.getenv("SONATYPE_PASSWORD")
+        publicationType = "USER_MANAGED"
     }
 }
