@@ -40,6 +40,18 @@ Download the appropriate pre-built binary for your platform from the official [R
 - Android
 - iOS
 
+### Loading the Extension
+
+```sql
+-- In SQLite CLI
+.load ./vector
+
+-- In SQL
+SELECT load_extension('./vector');
+```
+
+Or embed it directly into your application.
+
 ### WASM Version
 
 You can download the WebAssembly (WASM) version of SQLite with the SQLite Vector extension enabled from: https://www.npmjs.com/package/@sqliteai/sqlite-wasm
@@ -67,17 +79,63 @@ log("vector_version(): \(String(cString: sqlite3_column_text(stmt, 0)))")
 sqlite3_close(db)
 ```
 
-### Loading the Extension
+### Android Package
 
-```sql
--- In SQLite CLI
-.load ./vector
+You can [add this project as a dependency to your Android project](https://central.sonatype.com/artifact/ai.sqlite/vector).
+```gradle
+repositories {
+    google()
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
 
--- In SQL
-SELECT load_extension('./vector');
+dependencies {
+
+    ...
+    
+    implementation 'com.github.requery:sqlite-android:3.49.0'
+    implementation 'ai.sqlite:vector:0.9.32' // or 'com.github.sqliteai:sqlite-vector:0.9.32'
+}
 ```
 
-Or embed it directly into your application.
+After adding the package, you'll need to [enable extractNativeLibs](https://github.com/sqliteai/sqlite-extensions-guide/blob/18acfc56d6af8791928f3ac8df7dc0e6a9741dd4/examples/android/src/main/AndroidManifest.xml#L6).
+
+Here's an example of how to use the package:
+```java
+import android.database.Cursor;
+import io.requery.android.database.sqlite.SQLiteCustomExtension;
+import io.requery.android.database.sqlite.SQLiteDatabase;
+import io.requery.android.database.sqlite.SQLiteDatabaseConfiguration;
+import java.util.Collections;
+
+...
+
+    private void vectorExtension() {
+        try {
+            SQLiteCustomExtension vectorExtension = new SQLiteCustomExtension(getApplicationInfo().nativeLibraryDir + "/vector", null);
+            SQLiteDatabaseConfiguration config = new SQLiteDatabaseConfiguration(
+                getCacheDir().getPath() + "/vector_test.db",
+                SQLiteDatabase.CREATE_IF_NECESSARY | SQLiteDatabase.OPEN_READWRITE,
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.singletonList(vectorExtension)
+            );
+
+            SQLiteDatabase db = SQLiteDatabase.openDatabase(config, null, null);
+            
+            Cursor cursor = db.rawQuery("SELECT vector_version()", null);
+            if (cursor.moveToFirst()) {
+                String version = cursor.getString(0);
+                resultTextView.setText("vector_version(): " + version);
+            }
+            cursor.close();
+            db.close();
+
+        } catch (Exception e) {
+            resultTextView.setText("❌ Error: " + e.getMessage());
+        }
+    }
+```
 
 ### Python Package
 
