@@ -83,7 +83,7 @@ sqlite3_close(db)
 
 You can [add this project as a dependency to your Android project](https://central.sonatype.com/artifact/ai.sqlite/vector).
 
-**build.gradle (Groovy):**
+**Groovy:**
 ```gradle
 repositories {
     google()
@@ -102,7 +102,7 @@ dependencies {
 }
 ```
 
-**build.gradle.kts (Kotlin):**
+**Kotlin:**
 ```kotlin
 repositories {
     google()
