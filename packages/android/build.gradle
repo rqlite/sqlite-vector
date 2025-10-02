@@ -9,7 +9,7 @@ buildscript {
 }
 
 plugins {
-    id 'com.gradleup.nmcp' version '1.2.0'
+    id 'com.gradleup.nmcp.aggregation' version '1.2.0'
 }
 
 apply plugin: 'com.android.library'
@@ -60,7 +60,7 @@ afterEvaluate {
                 artifactId = 'vector'
                 version = project.hasProperty('VERSION') ? project.VERSION : ['make', 'version'].execute(null, file('../..')).text.trim()
 
-                artifact tasks.named("bundleReleaseAar").get().outputs.files.singleFile
+                artifact("$buildDir/outputs/aar/android-release.aar")
 
                 // Maven Central metadata
                 pom {
@@ -94,27 +94,28 @@ afterEvaluate {
             }
         }
     }
-}
 
-// Signing configuration for Maven Central
-signing {
-    required { project.hasProperty("SIGNING_KEY") }
-    if (project.hasProperty("SIGNING_KEY")) {
-        useInMemoryPgpKeys(
-            project.property("SIGNING_KEY").toString(),
-            project.property("SIGNING_PASSWORD").toString()
-        )
-        sign publishing.publications.release
+    // Signing configuration for Maven Central
+    signing {
+        required { project.hasProperty("SIGNING_KEY") }
+        if (project.hasProperty("SIGNING_KEY")) {
+            useInMemoryPgpKeys(
+                project.property("SIGNING_KEY").toString(),
+                project.property("SIGNING_PASSWORD").toString()
+            )
+            sign publishing.publications.release
+        }
     }
 }
 
-// Maven Central publishing via NMCP
-nmcp {
+// Maven Central publishing via NMCP aggregation
+nmcpAggregation {
     if (project.hasProperty("SONATYPE_USERNAME") && project.hasProperty("SONATYPE_PASSWORD")) {
-        publishAllPublications {
+        centralPortal {
             username = project.property("SONATYPE_USERNAME")
             password = project.property("SONATYPE_PASSWORD")
-            publicationType = "AUTOMATIC"
+            publishingType = "AUTOMATIC"
         }
+        publishAllProjectsProbablyBreakingProjectIsolation()
     }
 }
