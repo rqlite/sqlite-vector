@@ -198,14 +198,77 @@ jobs:
         with:
           path: artifacts
 
+      - name: zip artifacts
+        run: |
+          VERSION=$(make version)
+          for folder in "artifacts"/*; do
+            if [ -d "$folder" ]; then
+              name=$(basename "$folder")
+              if [[ "$name" != "vector-apple-xcframework" && "$name" != "vector-android-aar" ]]; then
+                tar -czf "${name}-${VERSION}.tar.gz" -C "$folder" .
+              fi
+              if [[ "$name" != "vector-android-aar" ]]; then
+                (cd "$folder" && zip -rq "../../${name}-${VERSION}.zip" .)
+              else
+                cp "$folder"/*.aar "${name}-${VERSION}.aar"
+              fi
+            fi
+          done
+
       - name: release tag version from sqlite-vector.h
         id: tag
         run: |
           VERSION=$(make version)
           if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            LATEST=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.name')
+            LATEST_RELEASE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/${{ github.repository }}/releases/latest)
+            LATEST=$(echo "$LATEST_RELEASE" | jq -r '.name')
             if [[ "$VERSION" != "$LATEST" || "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
               echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+              # Check artifact sizes against previous release
+              if [ -n "$LATEST" ] && [ "$LATEST" != "null" ]; then
+                echo "Checking artifact sizes against previous release: $LATEST"
+                FAILED=0
+
+                for artifact in vector-*-${VERSION}.*; do
+                  if [ ! -f "$artifact" ]; then
+                    continue
+                  fi
+
+                  # Get current artifact size
+                  NEW_SIZE=$(stat -c%s "$artifact" 2>/dev/null || stat -f%z "$artifact")
+
+                  # Get artifact name for previous release
+                  ARTIFACT_NAME=$(echo "$artifact" | sed "s/${VERSION}/${LATEST}/")
+
+                  # Get previous artifact size from GitHub API
+                  OLD_SIZE=$(echo "$LATEST_RELEASE" | jq -r ".assets[] | select(.name == \"$(basename "$ARTIFACT_NAME")\") | .size")
+
+                  if [ -z "$OLD_SIZE" ] || [ "$OLD_SIZE" = "null" ]; then
+                    echo "⚠️  Previous artifact not found: $(basename "$ARTIFACT_NAME"), skipping comparison"
+                    continue
+                  fi
+
+                  # Calculate percentage increase
+                  INCREASE=$(awk "BEGIN {printf \"%.2f\", (($NEW_SIZE - $OLD_SIZE) / $OLD_SIZE) * 100}")
+
+                  echo "📦 $artifact: $OLD_SIZE → $NEW_SIZE bytes (${INCREASE}% change)"
+
+                  # Check if increase is more than 5%
+                  if (( $(echo "$INCREASE > 5" | bc -l) )); then
+                    echo "❌ ERROR: $artifact size increased by ${INCREASE}% (limit: 5%)"
+                    FAILED=1
+                  fi
+                done
+
+                if [ $FAILED -eq 1 ]; then
+                  echo ""
+                  echo "❌ One or more artifacts exceeded the 5% size increase limit"
+                  exit 1
+                fi
+
+                echo "✅ All artifacts within 5% size increase limit"
+              fi
             else
               echo "::warning file=src/sqlite-vector.h::To release a new version, please update the SQLITE_VECTOR_VERSION in src/sqlite-vector.h to be different than the latest $LATEST"
             fi
@@ -234,23 +297,6 @@ jobs:
           git add modules/sqlite-vector
           git commit -m "Bump sqlite-vector version to ${{ steps.tag.outputs.version }}"
           git push origin main
-          
-      - name: zip artifacts
-        if: steps.tag.outputs.version != ''
-        run: |
-          for folder in "artifacts"/*; do
-            if [ -d "$folder" ]; then
-              name=$(basename "$folder")
-              if [[ "$name" != "vector-apple-xcframework" && "$name" != "vector-android-aar" ]]; then
-                tar -czf "${name}-${{ steps.tag.outputs.version }}.tar.gz" -C "$folder" .
-              fi
-              if [[ "$name" != "vector-android-aar" ]]; then
-                (cd "$folder" && zip -rq "../../${name}-${{ steps.tag.outputs.version }}.zip" .)
-              else
-                cp "$folder"/*.aar "${name}-${{ steps.tag.outputs.version }}.aar"
-              fi
-            fi
-          done
 
       - uses: actions/setup-java@v4
         if: steps.tag.outputs.version != ''
