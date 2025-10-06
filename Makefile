@@ -55,7 +55,7 @@ else ifeq ($(PLATFORM),macos)
 		LDFLAGS += -arch $(ARCH)
 		CFLAGS += -arch $(ARCH)
 	endif
-	LDFLAGS += -dynamiclib -undefined dynamic_lookup
+	LDFLAGS += -dynamiclib -undefined dynamic_lookup -headerpad_max_install_names
 	STRIP = strip -x -S $@
 else ifeq ($(PLATFORM),android)
 	ifndef ARCH # Set ARCH to find Android NDK's Clang compiler, the user should set the ARCH
@@ -75,13 +75,13 @@ else ifeq ($(PLATFORM),android)
 else ifeq ($(PLATFORM),ios)
 	TARGET := $(DIST_DIR)/vector.dylib
 	SDK := -isysroot $(shell xcrun --sdk iphoneos --show-sdk-path) -miphoneos-version-min=11.0
-	LDFLAGS += -dynamiclib $(SDK)
+	LDFLAGS += -dynamiclib $(SDK) -headerpad_max_install_names
 	CFLAGS += -arch arm64 $(SDK)
 	STRIP = strip -x -S $@
 else ifeq ($(PLATFORM),ios-sim)
 	TARGET := $(DIST_DIR)/vector.dylib
 	SDK := -isysroot $(shell xcrun --sdk iphonesimulator --show-sdk-path) -miphonesimulator-version-min=11.0
-	LDFLAGS += -arch x86_64 -arch arm64 -dynamiclib $(SDK)
+	LDFLAGS += -arch x86_64 -arch arm64 -dynamiclib $(SDK) -headerpad_max_install_names
 	CFLAGS += -arch x86_64 -arch arm64 $(SDK)
 	STRIP = strip -x -S $@
 else # linux
