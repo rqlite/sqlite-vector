@@ -40,6 +40,18 @@ Download the appropriate pre-built binary for your platform from the official [R
 - Android
 - iOS
 
+### Loading the Extension
+
+```sql
+-- In SQLite CLI
+.load ./vector
+
+-- In SQL
+SELECT load_extension('./vector');
+```
+
+Or embed it directly into your application.
+
 ### WASM Version
 
 You can download the WebAssembly (WASM) version of SQLite with the SQLite Vector extension enabled from: https://www.npmjs.com/package/@sqliteai/sqlite-wasm
@@ -67,17 +79,28 @@ log("vector_version(): \(String(cString: sqlite3_column_text(stmt, 0)))")
 sqlite3_close(db)
 ```
 
-### Loading the Extension
+### Android Package
 
-```sql
--- In SQLite CLI
-.load ./vector
+Add the [following](https://central.sonatype.com/artifact/ai.sqlite/vector) to your Gradle dependencies:
 
--- In SQL
-SELECT load_extension('./vector');
+```gradle
+implementation 'ai.sqlite:vector:0.9.34'
 ```
 
-Or embed it directly into your application.
+Here's an example of how to use the package:
+```java
+SQLiteCustomExtension vectorExtension = new SQLiteCustomExtension(getApplicationInfo().nativeLibraryDir + "/vector", null);
+SQLiteDatabaseConfiguration config = new SQLiteDatabaseConfiguration(
+    getCacheDir().getPath() + "/vector_test.db",
+    SQLiteDatabase.CREATE_IF_NECESSARY | SQLiteDatabase.OPEN_READWRITE,
+    Collections.emptyList(),
+    Collections.emptyList(),
+    Collections.singletonList(vectorExtension)
+);
+SQLiteDatabase db = SQLiteDatabase.openDatabase(config, null, null);
+```
+
+**Note:** Additional settings and configuration are required for a complete setup. For full implementation details, see the [complete Android example](https://github.com/sqliteai/sqlite-extensions-guide/blob/main/examples/android/README.md).
 
 ### Python Package
 
