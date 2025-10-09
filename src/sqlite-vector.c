@@ -186,6 +186,8 @@ typedef int (*vcursor_sort_callback)(vFullScanCursor *c);
 extern distance_function_t dispatch_distance_table[VECTOR_DISTANCE_MAX][VECTOR_TYPE_MAX];
 extern char *distance_backend_name;
 
+static sqlite3_mutex *qmutex;
+
 // MARK: - SQLite Utils -
 
 bool sqlite_system_exists (sqlite3 *db, const char *name, const char *type) {
@@ -1349,11 +1351,14 @@ static void vector_quantize_preload (sqlite3_context *context, int argc, sqlite3
         return;
     }
     
+    // free previous preload (if any)
+    sqlite3_mutex_enter(qmutex);
     if (t_ctx->preloaded) {
         sqlite3_free(t_ctx->preloaded);
         t_ctx->preloaded = NULL;
         t_ctx->precounter = 0;
     }
+    sqlite3_mutex_leave(qmutex);
     
     char sql[STATIC_SQL_SIZE];
     generate_memory_quant_table(table_name, column_name, sql);
@@ -1371,36 +1376,43 @@ static void vector_quantize_preload (sqlite3_context *context, int argc, sqlite3
         return;
     }
     
-    generate_select_quant_table(table_name, column_name, sql);
-    
-    int rc = SQLITE_NOMEM;
     sqlite3_stmt *vm = NULL;
-    rc = sqlite3_prepare_v2(db, sql, -1, &vm, NULL);
-    if (rc != SQLITE_OK) goto vector_preload_cleanup;
+    generate_select_quant_table(table_name, column_name, sql);
+    int rc = sqlite3_prepare_v2(db, sql, -1, &vm, NULL);
+    if (rc != SQLITE_OK) {
+        context_result_error(context, rc, "Internal statement error: %s", sqlite3_errmsg(db));
+        sqlite3_finalize(vm);
+        sqlite3_free(buffer);
+        return;
+    }
     
     int seek = 0;
     while (1) {
         rc = sqlite3_step(vm);
         if (rc == SQLITE_DONE) {rc = SQLITE_OK; break;} // return error: rebuild must be call (only if first time run)
-        else if (rc != SQLITE_ROW) goto vector_preload_cleanup;
+        else if (rc != SQLITE_ROW) {break;}
         
         int n = sqlite3_column_int(vm, 0);
         int bytes = sqlite3_column_bytes(vm, 1);
         uint8_t *data = (uint8_t *)sqlite3_column_blob(vm, 1);
         
+        // no check here because I am sure quantization was performed only on non NULL data
         memcpy(buffer+seek, data, bytes);
         seek += bytes;
         counter += n;
     }
-    rc = SQLITE_OK;
+    sqlite3_finalize(vm);
     
+    if (rc != SQLITE_OK) {
+        sqlite3_free(buffer);
+        context_result_error(context, rc, "vector_quantize_preload failed: %s", sqlite3_errmsg(db));
+        return;
+    }
+    
+    sqlite3_mutex_enter(qmutex);
     t_ctx->preloaded = buffer;
     t_ctx->precounter = counter;
-    
-vector_preload_cleanup:
-    if (rc != SQLITE_OK) printf("Error in vector_quantize_preload: %s\n", sqlite3_errmsg(db));
-    if (vm) sqlite3_finalize(vm);
-    return;
+    sqlite3_mutex_leave(qmutex);
 }
 
 static int vector_quantize (sqlite3_context *context, const char *table_name, const char *column_name, const char *arg_options, bool *was_preloaded) {
@@ -1415,8 +1427,10 @@ static int vector_quantize (sqlite3_context *context, const char *table_name, co
     char sql[STATIC_SQL_SIZE];
     sqlite3 *db = sqlite3_context_db_handle(context);
     
-    rc = sqlite3_exec(db, "BEGIN;", NULL, NULL, NULL);
+    bool savepoint_open = false;
+    rc = sqlite3_exec(db, "SAVEPOINT quantize;", NULL, NULL, NULL);
     if (rc != SQLITE_OK) goto quantize_cleanup;
+    savepoint_open = true;
     
     generate_drop_quant_table(table_name, column_name, sql);
     rc = sqlite3_exec(db, sql, NULL, NULL, NULL);
@@ -1428,12 +1442,11 @@ static int vector_quantize (sqlite3_context *context, const char *table_name, co
     
     vector_options options = t_ctx->options; // t_ctx guarantees to exist
     bool res = parse_keyvalue_string(context, arg_options, vector_keyvalue_callback, &options);
-    if (res == false) return SQLITE_ERROR;
+    if (res == false) {rc = SQLITE_ERROR; goto quantize_cleanup;}
     
+    sqlite3_mutex_enter(qmutex);
     rc = vector_rebuild_quantization(context, table_name, column_name, t_ctx, options.q_type, options.max_memory, &counter);
-    if (rc != SQLITE_OK) goto quantize_cleanup;
-    
-    rc = sqlite3_exec(db, "COMMIT;", NULL, NULL, NULL);
+    sqlite3_mutex_leave(qmutex);
     if (rc != SQLITE_OK) goto quantize_cleanup;
     
     // serialize quantization options
@@ -1444,18 +1457,26 @@ static int vector_quantize (sqlite3_context *context, const char *table_name, co
     rc = sqlite_serialize(context, table_name, column_name, SQLITE_FLOAT, OPTION_KEY_QUANTOFFSET, 0, t_ctx->offset);
     if (rc != SQLITE_OK) goto quantize_cleanup;
     
-quantize_cleanup:
-    if (rc != SQLITE_OK) {
-        printf("%s", sqlite3_errmsg(db));
-        sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
-        sqlite3_result_error_code(context, rc);
-        return rc;
-    }
+    rc = sqlite3_exec(db, "RELEASE quantize;", NULL, NULL, NULL);
+    if (rc != SQLITE_OK) goto quantize_cleanup;
+    savepoint_open = false;
     
-    // returns the total number of quantized rows
+    // success: returns the total number of quantized rows
     sqlite3_result_int64(context, (sqlite3_int64)counter);
     if (was_preloaded) *was_preloaded = (t_ctx->preloaded != NULL);
     return SQLITE_OK;
+    
+quantize_cleanup: {
+        const char *errmsg = sqlite3_errmsg(db);
+        if (savepoint_open) {
+            sqlite3_exec(db, "ROLLBACK TO quantize;", NULL, NULL, NULL);
+            sqlite3_exec(db, "RELEASE quantize;", NULL, NULL, NULL);
+        }
+        
+        sqlite3_result_error(context, errmsg, -1);
+        sqlite3_result_error_code(context, rc);
+        return rc;
+    }
 }
 
 static void vector_quantize3 (sqlite3_context *context, int argc, sqlite3_value **argv) {
@@ -2558,6 +2579,15 @@ SQLITE_VECTOR_API int sqlite3_vector_init (sqlite3 *db, char **pzErrMsg, const s
     #endif
     int rc = SQLITE_OK;
     
+    // there's no built-in way to verify if sqlite3_vector_init has already been called for this specific database connection
+    // the workaround is to attempt to execute vector_version and check for an error
+    // an error indicates that initialization has not been performed
+    if (sqlite3_exec(db, "SELECT vector_version();", NULL, NULL, NULL) == SQLITE_OK) return SQLITE_OK;
+    
+    // get an app global static mutex
+    qmutex = sqlite3_mutex_alloc(SQLITE_MUTEX_STATIC_APP1);
+    
+    // init internal distance functions (do not force CPU)
     init_distance_functions(false);
     
     // create internal table
