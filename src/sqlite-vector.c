@@ -46,6 +46,13 @@ char *strcasestr(const char *haystack, const char *needle) {
 #include <float.h>
 #endif
 
+#ifdef SQLITE_WASM_EXTRA_INIT
+#define sqlite3_mutex_alloc(_type)                  NULL
+#define sqlite3_mutex_enter(_mutex)
+#define sqlite3_mutex_leave(_mutex)
+#define sqlite3_mutex                               void
+#endif
+
 #ifndef SQLITE_CORE
 SQLITE_EXTENSION_INIT1
 #endif
