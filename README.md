@@ -56,6 +56,39 @@ Or embed it directly into your application.
 
 You can download the WebAssembly (WASM) version of SQLite with the SQLite Vector extension enabled from: https://www.npmjs.com/package/@sqliteai/sqlite-wasm
 
+## Example Usage
+
+```sql
+-- Create a regular SQLite table
+CREATE TABLE images (
+  id INTEGER PRIMARY KEY,
+  embedding BLOB, -- store Float32/UInt8/etc.
+  label TEXT
+);
+
+-- Insert a BLOB vector (Float32, 384 dimensions) using bindings
+INSERT INTO images (embedding, label) VALUES (?, 'cat');
+
+-- Insert a JSON vector (Float32, 384 dimensions)
+INSERT INTO images (embedding, label) VALUES (vector_as_f32('[0.3, 1.0, 0.9, 3.2, 1.4,...]'), 'dog');
+
+-- Initialize the vector. By default, the distance function is L2.
+-- To use a different metric, specify one of the following options:
+-- distance=L1, distance=COSINE, distance=DOT, or distance=SQUARED_L2.
+SELECT vector_init('images', 'embedding', 'type=FLOAT32,dimension=384');
+
+-- Quantize vector
+SELECT vector_quantize('images', 'embedding');
+
+-- Optional preload quantized version in memory (for a 4x/5x speedup) 
+SELECT vector_quantize_preload('images', 'embedding');
+
+-- Run a nearest neighbor query on the quantized version (returns top 20 closest vectors)
+SELECT e.id, v.distance FROM images AS e
+   JOIN vector_quantize_scan('images', 'embedding', ?, 20) AS v
+   ON e.id = v.rowid;
+```
+
 ### Swift Package
 
 You can [add this repository as a package dependency to your Swift project](https://developer.apple.com/documentation/xcode/adding-package-dependencies-to-your-app#Add-a-package-dependency). After adding the package, you'll need to set up SQLite with extension loading by following steps 4 and 5 of [this guide](https://github.com/sqliteai/sqlite-extensions-guide/blob/main/platforms/ios.md#4-set-up-sqlite-with-extension-loading).
@@ -111,39 +144,6 @@ pip install sqliteai-vector
 ```
 
 For usage details and examples, see the [Python package documentation](./packages/python/README.md).
-
-## Example Usage
-
-```sql
--- Create a regular SQLite table
-CREATE TABLE images (
-  id INTEGER PRIMARY KEY,
-  embedding BLOB, -- store Float32/UInt8/etc.
-  label TEXT
-);
-
--- Insert a BLOB vector (Float32, 384 dimensions) using bindings
-INSERT INTO images (embedding, label) VALUES (?, 'cat');
-
--- Insert a JSON vector (Float32, 384 dimensions)
-INSERT INTO images (embedding, label) VALUES (vector_as_f32('[0.3, 1.0, 0.9, 3.2, 1.4,...]'), 'dog');
-
--- Initialize the vector. By default, the distance function is L2.
--- To use a different metric, specify one of the following options:
--- distance=L1, distance=COSINE, distance=DOT, or distance=SQUARED_L2.
-SELECT vector_init('images', 'embedding', 'type=FLOAT32,dimension=384');
-
--- Quantize vector
-SELECT vector_quantize('images', 'embedding');
-
--- Optional preload quantized version in memory (for a 4x/5x speedup) 
-SELECT vector_quantize_preload('images', 'embedding');
-
--- Run a nearest neighbor query on the quantized version (returns top 20 closest vectors)
-SELECT e.id, v.distance FROM images AS e
-   JOIN vector_quantize_scan('images', 'embedding', ?, 20) AS v
-   ON e.id = v.rowid;
-```
 
 ## Documentation
 
