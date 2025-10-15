@@ -300,7 +300,6 @@ This makes them ideal for combining vector search with additional query conditio
 -- Perform a filtered full scan
 SELECT rowid, distance
 FROM vector_full_scan_stream('documents', 'embedding', vector_as_f32('[0.1, 0.2, 0.3]'))
-WHERE category = 'science'
 LIMIT 5;
 ```
 
@@ -308,7 +307,6 @@ LIMIT 5;
 -- Perform a filtered approximate scan using quantized data
 SELECT rowid, distance
 FROM vector_quantize_scan_stream('documents', 'embedding', vector_as_f32('[0.1, 0.2, 0.3]'))
-WHERE score > 0.8
 LIMIT 10;
 ```
 
@@ -317,13 +315,13 @@ LIMIT 10;
 ```sql
 -- Perform a filtered full scan with additional columns
 SELECT
-    v.rowid AS sentence_id,
+    v.rowid,
     row_number() OVER (ORDER BY v.distance) AS rank_number,
     v.distance
 FROM vector_full_scan_stream('documents', 'embedding', vector_as_f32('[0.1, 0.2, 0.3]')) AS v
-    JOIN sentences ON sentences.rowid = v.rowid
-WHERE sentences.chunk_id = 297
-LIMIT 3;
+    JOIN documents ON documents.rowid = v.rowid
+WHERE documents.category = 'science'
+LIMIT 10;
 ```
 
 **Usage Notes:**
