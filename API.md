@@ -262,3 +262,52 @@ FROM vector_quantize_scan('documents', 'embedding', vector_as_f32('[0.1, 0.2, 0.
 ```
 
 ---
+
+## 🔁 Streaming Interfaces
+
+### `vector_full_scan_stream` and `vector_quantize_scan_stream`
+
+**Returns:** `Virtual Table (rowid, distance)`
+
+**Description:**
+These streaming interfaces provide the same functionality as `vector_full_scan` and `vector_quantize_scan`, respectively, but are designed for incremental or filtered processing of results.
+Unlike their non-streaming counterparts, these functions **omit the fourth parameter (`k`)** and allow you to use standard SQL clauses such as `WHERE` and `LIMIT` to control filtering and result count.
+
+This makes them ideal for combining vector search with additional query conditions or progressive result consumption in streaming applications.
+
+**Parameters:**
+
+* `table` (TEXT): Name of the target table.
+* `column` (TEXT): Column containing vectors.
+* `vector` (BLOB or JSON): The query vector.
+
+**Key Differences from Non-Streaming Variants:**
+
+| Function                      | Equivalent To          | Requires `k` | Supports `WHERE` | Supports `LIMIT` |
+| ----------------------------- | ---------------------- | ------------ | ---------------- | ---------------- |
+| `vector_full_scan_stream`     | `vector_full_scan`     | ❌            | ✅                | ✅                |
+| `vector_quantize_scan_stream` | `vector_quantize_scan` | ❌            | ✅                | ✅                |
+
+**Examples:**
+
+```sql
+-- Perform a filtered full scan
+SELECT rowid, distance
+FROM vector_full_scan_stream('documents', 'embedding', vector_as_f32('[0.1, 0.2, 0.3]'))
+WHERE category = 'science'
+LIMIT 5;
+```
+
+```sql
+-- Perform a filtered approximate scan using quantized data
+SELECT rowid, distance
+FROM vector_quantize_scan_stream('documents', 'embedding', vector_as_f32('[0.1, 0.2, 0.3]'))
+WHERE score > 0.8
+LIMIT 10;
+```
+
+**Usage Notes:**
+
+* These interfaces return rows progressively and can efficiently combine vector similarity with SQL-level filters.
+* The `LIMIT` clause can be used to control how many rows are read or returned.
+* The query planner integrates the streaming virtual table into the overall SQL execution plan, enabling hybrid filtering and ranking operations.
