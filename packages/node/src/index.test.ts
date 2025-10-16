@@ -1,5 +1,4 @@
-import { test, describe } from 'node:test';
-import assert from 'node:assert';
+import { describe, it, expect } from 'vitest';
 import {
   getCurrentPlatform,
   getPlatformPackageName,
@@ -8,10 +7,10 @@ import {
   getExtensionPath,
   getExtensionInfo,
   ExtensionNotFoundError
-} from './index.js';
+} from './index';
 
 describe('Platform Detection', () => {
-  test('getCurrentPlatform() returns a valid platform', () => {
+  it('getCurrentPlatform() returns a valid platform', () => {
     const platform = getCurrentPlatform();
     const validPlatforms = [
       'darwin-arm64',
@@ -23,87 +22,68 @@ describe('Platform Detection', () => {
       'win32-x86_64',
     ];
 
-    assert.ok(
-      validPlatforms.includes(platform),
-      `Platform ${platform} should be one of: ${validPlatforms.join(', ')}`
-    );
+    expect(validPlatforms).toContain(platform);
   });
 
-  test('getPlatformPackageName() returns correct package name format', () => {
+  it('getPlatformPackageName() returns correct package name format', () => {
     const packageName = getPlatformPackageName();
 
-    assert.ok(
-      packageName.startsWith('@sqliteai/sqlite-vector-'),
-      'Package name should start with @sqliteai/sqlite-vector-'
-    );
+    expect(packageName.startsWith('@sqliteai/sqlite-vector-')).toBe(true);
 
-    assert.match(
-      packageName,
-      /^@sqliteai\/sqlite-vector-(darwin|linux|win32)-(arm64|x86_64)(-musl)?$/,
-      'Package name should match expected format'
+    expect(packageName).toMatch(
+      /^@sqliteai\/sqlite-vector-(darwin|linux|win32)-(arm64|x86_64)(-musl)?$/
     );
   });
 
-  test('getBinaryName() returns correct extension', () => {
+  it('getBinaryName() returns correct extension', () => {
     const binaryName = getBinaryName();
 
-    assert.match(
-      binaryName,
-      /^vector\.(dylib|so|dll)$/,
-      'Binary name should be vector.dylib, vector.so, or vector.dll'
+    expect(binaryName).toMatch(
+      /^vector\.(dylib|so|dll)$/
     );
   });
 
-  test('isMusl() returns a boolean', () => {
-    const result = isMusl();
-    assert.strictEqual(typeof result, 'boolean');
+  it('isMusl() returns a boolean', () => {
+    expect(typeof isMusl()).toBe('boolean');
   });
 });
 
 describe('Extension Path Resolution', () => {
-  test('getExtensionPath() returns a string or throws', () => {
+  it('getExtensionPath() returns a string or throws', () => {
     try {
       const path = getExtensionPath();
-      assert.strictEqual(typeof path, 'string');
-      assert.ok(path.length > 0, 'Path should not be empty');
+      expect(typeof path).toBe('string');
+      expect(path.length).toBeGreaterThan(0);
     } catch (error) {
-      // If it throws, it should be ExtensionNotFoundError
-      assert.ok(
-        error instanceof ExtensionNotFoundError,
-        'Should throw ExtensionNotFoundError if extension not found'
-      );
+      expect(error instanceof ExtensionNotFoundError).toBe(true);
     }
   });
 
-  test('getExtensionInfo() returns complete info object', () => {
+  it('getExtensionInfo() returns complete info object', () => {
     try {
       const info = getExtensionInfo();
 
-      assert.ok(info.platform, 'Should have platform');
-      assert.ok(info.packageName, 'Should have packageName');
-      assert.ok(info.binaryName, 'Should have binaryName');
-      assert.ok(info.path, 'Should have path');
+      expect(info.platform).toBeTruthy();
+      expect(info.packageName).toBeTruthy();
+      expect(info.binaryName).toBeTruthy();
+      expect(info.path).toBeTruthy();
 
-      assert.strictEqual(typeof info.platform, 'string');
-      assert.strictEqual(typeof info.packageName, 'string');
-      assert.strictEqual(typeof info.binaryName, 'string');
-      assert.strictEqual(typeof info.path, 'string');
+      expect(typeof info.platform).toBe('string');
+      expect(typeof info.packageName).toBe('string');
+      expect(typeof info.binaryName).toBe('string');
+      expect(typeof info.path).toBe('string');
     } catch (error) {
-      // If it throws, it should be ExtensionNotFoundError
-      assert.ok(
-        error instanceof ExtensionNotFoundError,
-        'Should throw ExtensionNotFoundError if extension not found'
-      );
+      expect(error instanceof ExtensionNotFoundError).toBe(true);
     }
   });
 });
 
 describe('Error Handling', () => {
-  test('ExtensionNotFoundError has correct properties', () => {
+  it('ExtensionNotFoundError has correct properties', () => {
     const error = new ExtensionNotFoundError('Test message');
 
-    assert.ok(error instanceof Error);
-    assert.strictEqual(error.name, 'ExtensionNotFoundError');
-    assert.strictEqual(error.message, 'Test message');
+    expect(error instanceof Error).toBe(true);
+    expect(error.name).toBe('ExtensionNotFoundError');
+    expect(error.message).toBe('Test message');
   });
 });
