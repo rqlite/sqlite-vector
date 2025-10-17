@@ -1,6 +1,6 @@
 # @sqliteai/sqlite-vector
 
-[![npm version](https://badge.fury.io/js/@sqliteai%2Fsqlite-vector.svg)](https://www.npmjs.com/package/@sqliteai/sqlite-vector)
+[![npm version](https://badge.fury.io/js/@sqliteai%2Fsqlite-vector.svg)](https://badge.fury.io/js/@sqliteai%2Fsqlite-vector)
 [![License](https://img.shields.io/badge/license-Elastic%202.0-blue.svg)](LICENSE.md)
 
 > SQLite Vector extension packaged for Node.js
