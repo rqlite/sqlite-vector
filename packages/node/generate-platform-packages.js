@@ -153,7 +153,7 @@ npm install @sqliteai/sqlite-vector
 
 ## License
 
-See [LICENSE.md](../../../LICENSE.md) in the root directory.
+See [LICENSE.md](./LICENSE.md) in the root directory.
 `;
 }
 
