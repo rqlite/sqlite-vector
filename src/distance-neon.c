@@ -13,13 +13,18 @@
 
 
 #if defined(__ARM_NEON) || defined(__ARM_NEON__)
+
+#if __SIZEOF_POINTER__ == 4
+#define _ARM32BIT_ 1
+#endif
+
 #include <arm_neon.h>
 
 extern distance_function_t dispatch_distance_table[VECTOR_DISTANCE_MAX][VECTOR_TYPE_MAX];
 extern char *distance_backend_name;
 
 // Helper function for 32-bit ARM: vmaxv_u16 is not available in ARMv7 NEON
-#if __SIZEOF_POINTER__ == 4
+#ifdef _ARM32BIT_
 static inline uint16_t vmaxv_u16_compat(uint16x4_t v) {
     // Use pairwise max to reduce vector
     uint16x4_t m = vpmax_u16(v, v);  // [max(v0,v1), max(v2,v3), max(v0,v1), max(v2,v3)]
@@ -169,7 +174,7 @@ float bfloat16_distance_l2_impl_neon (const void *v1, const void *v2, int n, boo
     const uint16_t *a = (const uint16_t *)v1;
     const uint16_t *b = (const uint16_t *)v2;
 
-#if __SIZEOF_POINTER__ == 4
+#ifdef _ARM32BIT_
     // 32-bit ARM: use scalar double accumulation (no float64x2_t in NEON)
     double sum = 0.0;
     int i = 0;
@@ -446,7 +451,7 @@ float float16_distance_l2_impl_neon (const void *v1, const void *v2, int n, bool
     const uint16x4_t SIGN_MASK = vdup_n_u16(0x8000u);
     const uint16x4_t ZERO16    = vdup_n_u16(0);
 
-#if __SIZEOF_POINTER__ == 4
+#ifdef _ARM32BIT_
     // 32-bit ARM: use scalar double accumulation
     double sum = 0.0;
     int i = 0;
@@ -487,7 +492,7 @@ float float16_distance_l2_impl_neon (const void *v1, const void *v2, int n, bool
         uint32x4_t m = vceqq_f32(d32, d32);                    /* true where not-NaN */
         d32 = vbslq_f32(m, d32, vdupq_n_f32(0.0f));
 
-#if __SIZEOF_POINTER__ == 4
+#ifdef _ARM32BIT_
         // 32-bit ARM: accumulate in scalar double
         float tmp[4];
         vst1q_f32(tmp, d32);
@@ -509,7 +514,7 @@ float float16_distance_l2_impl_neon (const void *v1, const void *v2, int n, bool
 #endif
     }
 
-#if __SIZEOF_POINTER__ != 4
+#ifndef _ARM32BIT_
     double sum = vaddvq_f64(vaddq_f64(acc0, acc1));
 #endif
 
@@ -544,7 +549,7 @@ float float16_distance_cosine_neon (const void *v1, const void *v2, int n) {
     const uint16x4_t FRAC_MASK = vdup_n_u16(0x03FFu);
     const uint16x4_t ZERO16    = vdup_n_u16(0);
 
-#if __SIZEOF_POINTER__ == 4
+#ifdef _ARM32BIT_
     // 32-bit ARM: use scalar double accumulation
     double dot = 0.0, normx = 0.0, normy = 0.0;
     int i = 0;
@@ -576,7 +581,7 @@ float float16_distance_cosine_neon (const void *v1, const void *v2, int n) {
         ax = vbslq_f32(mx, ax, vdupq_n_f32(0.0f));
         by = vbslq_f32(my, by, vdupq_n_f32(0.0f));
 
-#if __SIZEOF_POINTER__ == 4
+#ifdef _ARM32BIT_
         // 32-bit ARM: accumulate in scalar double
         float ax_tmp[4], by_tmp[4];
         vst1q_f32(ax_tmp, ax);
@@ -611,7 +616,7 @@ float float16_distance_cosine_neon (const void *v1, const void *v2, int n) {
 #endif
     }
 
-#if __SIZEOF_POINTER__ != 4
+#ifndef _ARM32BIT_
     double dot  = vaddvq_f64(vaddq_f64(acc_dot_lo, acc_dot_hi));
     double normx= vaddvq_f64(vaddq_f64(acc_a2_lo,  acc_a2_hi));
     double normy= vaddvq_f64(vaddq_f64(acc_b2_lo,  acc_b2_hi));
@@ -649,7 +654,7 @@ float float16_distance_dot_neon (const void *v1, const void *v2, int n) {
     const uint16x4_t FRAC_MASK = vdup_n_u16(0x03FFu);
     const uint16x4_t ZERO16    = vdup_n_u16(0);
 
-#if __SIZEOF_POINTER__ == 4
+#ifdef _ARM32BIT_
     // 32-bit ARM: use scalar double accumulation
     double dot = 0.0;
     int i = 0;
@@ -675,7 +680,7 @@ float float16_distance_dot_neon (const void *v1, const void *v2, int n) {
                 if (isnan(x) || isnan(y)) continue;
                 double p = (double)x * (double)y;
                 if (isinf(p)) return (p>0)? -INFINITY : INFINITY;
-#if __SIZEOF_POINTER__ == 4
+#ifdef _ARM32BIT_
                 dot += p;
 #else
                 acc_lo = vsetq_lane_f64(vgetq_lane_f64(acc_lo,0)+p, acc_lo, 0); /* cheap add */
@@ -695,7 +700,7 @@ float float16_distance_dot_neon (const void *v1, const void *v2, int n) {
 
         float32x4_t prod = vmulq_f32(ax, by);
 
-#if __SIZEOF_POINTER__ == 4
+#ifdef _ARM32BIT_
         // 32-bit ARM: accumulate in scalar double
         float prod_tmp[4];
         vst1q_f32(prod_tmp, prod);
@@ -711,7 +716,7 @@ float float16_distance_dot_neon (const void *v1, const void *v2, int n) {
 #endif
     }
 
-#if __SIZEOF_POINTER__ != 4
+#ifndef _ARM32BIT_
     double dot = vaddvq_f64(vaddq_f64(acc_lo, acc_hi));
 #endif
 
@@ -739,7 +744,7 @@ float float16_distance_l1_neon (const void *v1, const void *v2, int n) {
     const uint16x4_t SIGN_MASK = vdup_n_u16(0x8000u);
     const uint16x4_t ZERO16    = vdup_n_u16(0);
 
-#if __SIZEOF_POINTER__ == 4
+#ifdef _ARM32BIT_
     // 32-bit ARM: use scalar double accumulation
     double sum = 0.0;
     int i = 0;
@@ -776,7 +781,7 @@ float float16_distance_l1_neon (const void *v1, const void *v2, int n) {
         uint32x4_t m   = vceqq_f32(d, d);                   /* mask NaNs -> 0 */
         d = vbslq_f32(m, d, vdupq_n_f32(0.0f));
 
-#if __SIZEOF_POINTER__ == 4
+#ifdef _ARM32BIT_
         // 32-bit ARM: accumulate in scalar double
         float tmp[4];
         vst1q_f32(tmp, d);
@@ -792,7 +797,7 @@ float float16_distance_l1_neon (const void *v1, const void *v2, int n) {
 #endif
     }
 
-#if __SIZEOF_POINTER__ != 4
+#ifndef _ARM32BIT_
     double sum = vaddvq_f64(acc);
 #endif
 
